@@ -10,9 +10,11 @@ const CORNERS = [PI / 6, 3 * PI / 6, 5 * PI / 6, 7 * PI / 6, 9 * PI / 6, 11 * PI
 
 var vertices: Array[Vector2] = [Vector2(0, 0)]
 var triangles: Array[Vector3i] = []
+var quads: Array[Vector4i] = []
 
 func _ready() -> void:
 	generate_triangles()
+	dissolve_triangles()
 
 func generate_triangles():
 	for i: int in range(1, rings + 1):
@@ -52,18 +54,92 @@ func generate_triangles():
 				current_ring_start_index + current_sector_start_index + i - 1,
 				previous_ring_start_index + (previous_sector_start_index + i - 1) % previous_ring_vertex_count))
 
+func dissolve_triangles() -> void:
+	# Create lookup table for triangles
+	var edge_triangle_lookup: Dictionary[Vector2i, Array] = {}
+	var edge_indexes : Array[Vector2i] = [Vector2i(0, 1), Vector2i(1, 2), Vector2i(2, 0)]
+	var shuffled_edge_index: Array[Vector2i] = edge_indexes.duplicate()
+	
+	for t: Vector3i in triangles:
+		for edge_index: Vector2i in edge_indexes:
+			_add_edge_to_triangle_lookup(t[edge_index[0]], t[edge_index[1]], t, edge_triangle_lookup)
+	
+	# Try to dissolve each triangle
+	for triangle: Vector3i in triangles.duplicate():
+		shuffled_edge_index.shuffle()
+		
+		for j: int in len(shuffled_edge_index):
+			var edge_list = edge_triangle_lookup[_get_edge_index(triangle[shuffled_edge_index[j][0]], triangle[shuffled_edge_index[j][1]])]
+			
+			if len(edge_list) < 2:
+				continue # No triangle to merge with
+			
+			var other_triangle = edge_list[0] if edge_list[1] == triangle else edge_list[1]
+			var combined_indexes = []
+			
+			# Create combined quad
+			for k: int in range(3):
+				if not triangle[k] in combined_indexes:
+					combined_indexes.append(triangle[k])
+			
+			for k: int in range(3):
+				if not other_triangle[k] in combined_indexes:
+					combined_indexes.append(other_triangle[k])
+			
+			var quad_center_position: Vector2 = (vertices[combined_indexes[0]] + vertices[combined_indexes[1]] + 
+				vertices[combined_indexes[2]] + vertices[combined_indexes[3]]) / 4
+			combined_indexes.sort_custom(func(a, b):
+				var da := vertices[a] - quad_center_position
+				var db := vertices[b] - quad_center_position
+				return atan2(da.y, da.x) > atan2(db.y, db.x)
+			)
+			
+			quads.append(Vector4i(combined_indexes[0], combined_indexes[1], combined_indexes[2], combined_indexes[3]))
+			
+			# Remove triangles
+			for edge_index: Vector2i in edge_indexes:
+				edge_triangle_lookup[_get_edge_index(triangle[edge_index[0]], triangle[edge_index[1]])].erase(triangle)
+				edge_triangle_lookup[_get_edge_index(other_triangle[edge_index[0]], other_triangle[edge_index[1]])].erase(other_triangle)
+			
+			triangles.erase(triangle)
+			triangles.erase(other_triangle)
+			
+			break
+
+func _add_edge_to_triangle_lookup(vertex1: int, vertex2: int, triangle: Vector3i, edge_triangle_lookup: Dictionary[Vector2i, Array]):
+	var index = _get_edge_index(vertex1, vertex2)
+	var edge_list = edge_triangle_lookup.get(index, [])
+	edge_list.append(triangle)
+	edge_triangle_lookup[index] = edge_list
+
+func _get_edge_index(vertex1: int, vertex2: int) -> Vector2i:
+	var smallest_index = min(vertex1, vertex2)
+	var largest_index = max(vertex1, vertex2)
+	var index = Vector2i(smallest_index, largest_index)
+	
+	return index
+
 func _draw() -> void:
+	# Draw vertices
 	for v: Vector2 in vertices:
 		draw_circle(v * scaling_factor, 5, Color.YELLOW)
 	
 	draw_circle(Vector2.ZERO, 5, Color.GREEN)
 	
+	# Draw triangles
 	for i in len(triangles):
-		var t = triangles[i]
+		var triangle = triangles[i]
 		for j: int in range(3):
 			var colour = Color.AQUA if i % 2 == 0 else Color.BLUE
 			var width = 5 if i % 2 == 0 else 3
-			draw_line(vertices[t[j]] * scaling_factor, vertices[t[(j + 1) % 3]] * scaling_factor, colour, width)
+			draw_line(vertices[triangle[j]] * scaling_factor, vertices[triangle[(j + 1) % 3]] * scaling_factor, colour, width)
 	
+	# Draw quads
+	for i in len(quads):
+		var quad = quads[i]
+		for j: int in range(4):
+			draw_line(vertices[quad[j]] * scaling_factor, vertices[quad[(j + 1) % 4]] * scaling_factor, Color.PURPLE, 3)
+	
+	# Draw sectors
 	for i: int in range(len(CORNERS)):
 		draw_line(Vector2.ZERO, Vector2(cos(CORNERS[i]), sin(CORNERS[i])) * rings * scaling_factor, Color.BLACK)
