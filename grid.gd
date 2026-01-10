@@ -21,6 +21,8 @@ func _ready() -> void:
 	quads.clear()
 	quads.append_array(triangle_quads)
 	quads.append_array(quad_quads)
+	
+	remove_duplicate_vertices()
 
 func generate_triangles():
 	for i: int in range(1, rings + 1):
@@ -175,6 +177,34 @@ func _get_edge_index(vertex1: int, vertex2: int) -> Vector2i:
 	var index = Vector2i(smallest_index, largest_index)
 	
 	return index
+
+func remove_duplicate_vertices() -> void:
+	var position_index_mapping: Dictionary[Vector2, int] = {}
+	var old_to_new_index: Array[int] = []
+	var new_vertices: Array[Vector2] = []
+
+	# Deduplicate vertices
+	for i in range(len(vertices)):
+		var vertex: Vector2 = vertices[i]
+		if vertex in position_index_mapping:
+			old_to_new_index.append(position_index_mapping[vertex])
+		else:
+			var new_index = new_vertices.size()
+			position_index_mapping[vertex] = new_index
+			old_to_new_index.append(new_index)
+			new_vertices.append(vertex)
+
+	vertices = new_vertices
+
+	# Remap quads
+	for i in range(len(quads)):
+		var quad = quads[i]
+		quads[i] = Vector4i(
+			old_to_new_index[quad[0]],
+			old_to_new_index[quad[1]],
+			old_to_new_index[quad[2]],
+			old_to_new_index[quad[3]]
+		)
 
 func _draw() -> void:
 	# Draw vertices
