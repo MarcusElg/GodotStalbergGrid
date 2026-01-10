@@ -15,7 +15,12 @@ var quads: Array[Vector4i] = []
 func _ready() -> void:
 	generate_triangles()
 	dissolve_triangles()
-	subdivide_triangles()
+	
+	var triangle_quads: Array[Vector4i] = subdivide_triangles()
+	var quad_quads: Array[Vector4i] = subdivide_quads()
+	quads.clear()
+	quads.append_array(triangle_quads)
+	quads.append_array(quad_quads)
 
 func generate_triangles():
 	for i: int in range(1, rings + 1):
@@ -107,25 +112,56 @@ func dissolve_triangles() -> void:
 			
 			break
 
-func subdivide_triangles() -> void:
+func subdivide_triangles() -> Array[Vector4i]:
+	var triangle_quads: Array[Vector4i] = []
+	
 	for triangle: Vector3i in triangles:
 		# Create new vertices
 		var center_position: Vector2 = (vertices[triangle[0]] + vertices[triangle[1]] + vertices[triangle[2]]) / 3
-		var ab_center_position: Vector2 = (vertices[triangle[0]] + vertices[triangle[1]]) / 2
-		var bc_center_position: Vector2 = (vertices[triangle[1]] + vertices[triangle[2]]) / 2
-		var ca_center_position: Vector2 = (vertices[triangle[2]] + vertices[triangle[0]]) / 2
+		var edge_center_positions: Array[Vector2] = []
+		
+		for i: int in range(3):
+			edge_center_positions.append((vertices[triangle[i]] + vertices[triangle[(i + 1) % 3]]) / 2)
 		
 		vertices.append(center_position)
-		vertices.append(ab_center_position)
-		vertices.append(bc_center_position)
-		vertices.append(ca_center_position)
 		
-		# Create new quads
-		quads.append(Vector4i(triangle[0], len(vertices) - 3, len(vertices) - 4, len(vertices) - 1))
-		quads.append(Vector4i(triangle[1], len(vertices) - 2, len(vertices) - 4, len(vertices) - 3))
-		quads.append(Vector4i(triangle[2], len(vertices) - 1, len(vertices) - 4, len(vertices) - 2))
+		for i: int in range(3):
+			vertices.append(edge_center_positions[i])
+		
+		for i in range(3):
+			triangle_quads.append(Vector4i(triangle[i], len(vertices) - (3 - i), len(vertices) - 4, len(vertices) - (1 + (3 - i) % 3)))
+
 	
 	triangles.clear()
+	
+	return triangle_quads
+
+func subdivide_quads() -> Array[Vector4i]:
+	var quad_quads: Array[Vector4i] = []
+	
+	for quad: Vector4i in quads:
+		# Create new vertices
+		var center_position: Vector2 = (vertices[quad[0]] + vertices[quad[1]] + vertices[quad[2]] + vertices[quad[3]]) / 4
+		var edge_center_positions: Array[Vector2] = []
+		
+		for i: int in range(4):
+			edge_center_positions.append((vertices[quad[i]] + vertices[quad[(i + 1) % 4]]) / 2)
+		
+		vertices.append(center_position)
+		
+		for i: int in range(4):
+			vertices.append(edge_center_positions[i])
+		
+		# Create new quads
+		quad_quads.append(Vector4i(quad[0], len(vertices) - 4, len(vertices) - 5, len(vertices) - 1))
+		quad_quads.append(Vector4i(quad[1], len(vertices) - 3, len(vertices) - 5, len(vertices) - 4))
+		quad_quads.append(Vector4i(quad[2], len(vertices) - 2, len(vertices) - 5, len(vertices) - 3))
+		quad_quads.append(Vector4i(quad[3], len(vertices) - 1, len(vertices) - 5, len(vertices) - 2))
+		
+		for i in range(4):
+			quad_quads.append(Vector4i(quad[i], len(vertices) - (4 - i), len(vertices) - 5, len(vertices) - (1 + (4 - i) % 4)))
+	
+	return quad_quads
 
 func _add_edge_to_triangle_lookup(vertex1: int, vertex2: int, triangle: Vector3i, edge_triangle_lookup: Dictionary[Vector2i, Array]):
 	var index = _get_edge_index(vertex1, vertex2)
