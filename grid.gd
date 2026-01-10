@@ -15,6 +15,7 @@ var quads: Array[Vector4i] = []
 func _ready() -> void:
 	generate_triangles()
 	dissolve_triangles()
+	subdivide_triangles()
 
 func generate_triangles():
 	for i: int in range(1, rings + 1):
@@ -105,6 +106,26 @@ func dissolve_triangles() -> void:
 			triangles.erase(other_triangle)
 			
 			break
+
+func subdivide_triangles() -> void:
+	for triangle: Vector3i in triangles:
+		# Create new vertices
+		var center_position: Vector2 = (vertices[triangle[0]] + vertices[triangle[1]] + vertices[triangle[2]]) / 3
+		var ab_center_position: Vector2 = (vertices[triangle[0]] + vertices[triangle[1]]) / 2
+		var bc_center_position: Vector2 = (vertices[triangle[1]] + vertices[triangle[2]]) / 2
+		var ca_center_position: Vector2 = (vertices[triangle[2]] + vertices[triangle[0]]) / 2
+		
+		vertices.append(center_position)
+		vertices.append(ab_center_position)
+		vertices.append(bc_center_position)
+		vertices.append(ca_center_position)
+		
+		# Create new quads
+		quads.append(Vector4i(triangle[0], len(vertices) - 3, len(vertices) - 4, len(vertices) - 1))
+		quads.append(Vector4i(triangle[1], len(vertices) - 2, len(vertices) - 4, len(vertices) - 3))
+		quads.append(Vector4i(triangle[2], len(vertices) - 1, len(vertices) - 4, len(vertices) - 2))
+	
+	triangles.clear()
 
 func _add_edge_to_triangle_lookup(vertex1: int, vertex2: int, triangle: Vector3i, edge_triangle_lookup: Dictionary[Vector2i, Array]):
 	var index = _get_edge_index(vertex1, vertex2)
