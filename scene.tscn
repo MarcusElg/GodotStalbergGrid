@@ -1,15 +1,17 @@
-[gd_scene load_steps=3 format=3 uid="uid://cbi6t8xp34va"]
+[gd_scene load_steps=4 format=3 uid="uid://cbi6t8xp34va"]
 
-[ext_resource type="Script" uid="uid://bi3yleqxxneh8" path="res://scripts/grid.gd" id="1_ulcgi"]
+[ext_resource type="Script" uid="uid://fa3nx0i7esfo" path="res://scripts/world.gd" id="2_3253y"]
 [ext_resource type="Script" uid="uid://c2d3urgir4x3j" path="res://scripts/camera_movement.gd" id="2_nxogm"]
+[ext_resource type="PackedScene" uid="uid://sq0jcnvnnrup" path="res://scenes/grid.tscn" id="3_u3cyc"]
 
 [node name="Node2D" type="Node2D"]
 
-[node name="Grid" type="Node2D" parent="."]
-script = ExtResource("1_ulcgi")
-rings = 4
-smoothing_iterations = 20
-
 [node name="Camera2D" type="Camera2D" parent="."]
 zoom = Vector2(0.565, 0.565)
+limit_enabled = false
 script = ExtResource("2_nxogm")
+
+[node name="World" type="Node2D" parent="." node_paths=PackedStringArray("camera")]
+script = ExtResource("2_3253y")
+grid_scene = ExtResource("3_u3cyc")
+camera = NodePath("../Camera2D")

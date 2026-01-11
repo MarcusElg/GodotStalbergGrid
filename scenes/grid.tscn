@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://sq0jcnvnnrup"]
+
+[ext_resource type="Script" uid="uid://bi3yleqxxneh8" path="res://scripts/grid.gd" id="1_t5fjg"]
+
+[node name="Grid" type="Node2D"]
+script = ExtResource("1_t5fjg")
+rings = 4
+smoothing_iterations = 20

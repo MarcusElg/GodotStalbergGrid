@@ -1,3 +1,4 @@
+class_name Grid
 extends Node2D
 
 @export_range(1, 1000)
@@ -9,6 +10,9 @@ var rings: int = 3
 @export_range(1, 20)
 var smoothing_iterations: int = 10
 
+@export
+var debug_rendering: bool = false
+
 const CORNERS = [PI / 6, 3 * PI / 6, 5 * PI / 6, 7 * PI / 6, 9 * PI / 6, 11 * PI / 6]
 
 var vertices: Array[Vector2] = [Vector2(0, 0)]
@@ -16,7 +20,7 @@ var triangles: Array[Vector3i] = [] # Vector of vertex indexes
 var quads: Array[Vector4i] = [] # Vector of vertex indexes
 var border_vertices: Dictionary[int, bool] = {} # Dictionary of vertex indexes
 
-func _ready() -> void:
+func generate() -> void:
 	generate_triangles()
 	dissolve_triangles()
 	
@@ -267,12 +271,6 @@ func _add_edge_to_adjacency_list(vertex1: int, vertex2: int, adjacency_list: Dic
 	adjacency_list[vertex1] = neighbours
 
 func _draw() -> void:
-	# Draw vertices
-	for v: Vector2 in vertices:
-		draw_circle(v * scaling_factor, 5, Color.YELLOW)
-	
-	draw_circle(Vector2.ZERO, 5, Color.GREEN)
-	
 	# Draw triangles
 	for i in len(triangles):
 		var triangle = triangles[i]
@@ -287,6 +285,11 @@ func _draw() -> void:
 		for j: int in range(4):
 			draw_line(vertices[quad[j]] * scaling_factor, vertices[quad[(j + 1) % 4]] * scaling_factor, Color.PURPLE, 3)
 	
-	# Draw sectors
-	for i: int in range(len(CORNERS)):
-		draw_line(Vector2.ZERO, Vector2(cos(CORNERS[i]), sin(CORNERS[i])) * rings * scaling_factor, Color.BLACK)
+	if debug_rendering:
+		# Draw vertices
+		for v: Vector2 in vertices:
+			draw_circle(v * scaling_factor, 5, Color.YELLOW)
+		
+		# Draw sectors
+		for i: int in range(len(CORNERS)):
+			draw_line(Vector2.ZERO, Vector2(cos(CORNERS[i]), sin(CORNERS[i])) * rings * scaling_factor, Color.BLACK, 2)
