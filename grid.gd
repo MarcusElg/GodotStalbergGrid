@@ -6,11 +6,15 @@ var scaling_factor: int = 100
 @export_range(1, 10)
 var rings: int = 3
 
+@export_range(1, 20)
+var smoothing_iterations: int = 10
+
 const CORNERS = [PI / 6, 3 * PI / 6, 5 * PI / 6, 7 * PI / 6, 9 * PI / 6, 11 * PI / 6]
 
 var vertices: Array[Vector2] = [Vector2(0, 0)]
-var triangles: Array[Vector3i] = []
-var quads: Array[Vector4i] = []
+var triangles: Array[Vector3i] = [] # Vector of vertex indexes
+var quads: Array[Vector4i] = [] # Vector of vertex indexes
+var border_vertices: Dictionary[int, bool] = {} # Dictionary of vertex indexes
 
 func _ready() -> void:
 	generate_triangles()
@@ -23,6 +27,7 @@ func _ready() -> void:
 	quads.append_array(quad_quads)
 	
 	remove_duplicate_vertices()
+	relax_grid()
 
 func generate_triangles():
 	for i: int in range(1, rings + 1):
@@ -36,6 +41,9 @@ func generate_triangles():
 			for k in range(i):
 				var vertex_position = start_position.lerp(end_position, float(k) / i)
 				vertices.append(vertex_position)
+				
+				if i == rings:
+					border_vertices[len(vertices) - 1] = true
 		
 		# Generate triangles
 		var previous_ring_vertex_count = maxi(1, 6 * (i - 1))
@@ -124,11 +132,15 @@ func subdivide_triangles() -> Array[Vector4i]:
 		
 		for i: int in range(3):
 			edge_center_positions.append((vertices[triangle[i]] + vertices[triangle[(i + 1) % 3]]) / 2)
-		
+			
 		vertices.append(center_position)
 		
 		for i: int in range(3):
 			vertices.append(edge_center_positions[i])
+			
+			# Vertex created between two border vertices is also a border vertex
+			if border_vertices.has(triangle[i]) and border_vertices.has(triangle[(i + 1) % 3]):
+				border_vertices[len(vertices) - 1] = true
 		
 		for i in range(3):
 			triangle_quads.append(Vector4i(triangle[i], len(vertices) - (3 - i), len(vertices) - 4, len(vertices) - (1 + (3 - i) % 3)))
@@ -153,6 +165,10 @@ func subdivide_quads() -> Array[Vector4i]:
 		
 		for i: int in range(4):
 			vertices.append(edge_center_positions[i])
+			
+			# Vertex created between two border vertices is also a border vertex
+			if border_vertices.has(quad[i]) and border_vertices.has(quad[(i + 1) % 4]) == true:
+				border_vertices[len(vertices) - 1] = true
 		
 		# Create new quads
 		quad_quads.append(Vector4i(quad[0], len(vertices) - 4, len(vertices) - 5, len(vertices) - 1))
@@ -182,6 +198,7 @@ func remove_duplicate_vertices() -> void:
 	var position_index_mapping: Dictionary[Vector2, int] = {}
 	var old_to_new_index: Array[int] = []
 	var new_vertices: Array[Vector2] = []
+	var new_border_vertices: Dictionary[int, bool] = {}
 
 	# Deduplicate vertices
 	for i in range(len(vertices)):
@@ -193,8 +210,12 @@ func remove_duplicate_vertices() -> void:
 			position_index_mapping[vertex] = new_index
 			old_to_new_index.append(new_index)
 			new_vertices.append(vertex)
+			
+			if border_vertices.has(i):
+				new_border_vertices[len(new_vertices) - 1] = true
 
 	vertices = new_vertices
+	border_vertices = new_border_vertices
 
 	# Remap quads
 	for i in range(len(quads)):
@@ -205,6 +226,45 @@ func remove_duplicate_vertices() -> void:
 			old_to_new_index[quad[2]],
 			old_to_new_index[quad[3]]
 		)
+
+# Laplacian smoothing
+func relax_grid() -> void:
+	# Create adjecency list
+	var adjacency_list: Dictionary[int, Array] = {}
+	
+	for quad: Vector4i in quads:
+		for i: int in range(4):
+			_add_edge_to_adjacency_list(quad[i], quad[(i + 1) % 4], adjacency_list)
+			_add_edge_to_adjacency_list(quad[(i + 1) % 4], quad[i], adjacency_list)
+
+	for i: int in range(smoothing_iterations):
+		# Calculate new vertex positions
+		var new_vertices: Array[Vector2] = []
+		
+		for j: int in range(len(vertices)):
+			# Don't move border vertices
+			if border_vertices.has(j):
+				new_vertices.append(vertices[j])
+				continue
+			
+			var new_position: Vector2 = Vector2.ZERO
+			var count: int = 0
+			
+			for neighbour: int in adjacency_list[j]:
+				new_position += vertices[neighbour]
+				count += 1
+			
+			new_position /= count
+			new_vertices.append(new_position)
+		
+		# Apply new vertex positions
+		vertices = new_vertices
+
+func _add_edge_to_adjacency_list(vertex1: int, vertex2: int, adjacency_list: Dictionary[int, Array]):
+	var neighbours = adjacency_list.get(vertex1, [])
+	if not vertex2 in neighbours:
+		neighbours.append(vertex2)
+	adjacency_list[vertex1] = neighbours
 
 func _draw() -> void:
 	# Draw vertices
