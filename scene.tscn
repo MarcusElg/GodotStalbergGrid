@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://cbi6t8xp34va"]
+[gd_scene load_steps=3 format=3 uid="uid://cbi6t8xp34va"]
 
-[ext_resource type="Script" uid="uid://bi3yleqxxneh8" path="res://grid.gd" id="1_ulcgi"]
+[ext_resource type="Script" uid="uid://bi3yleqxxneh8" path="res://scripts/grid.gd" id="1_ulcgi"]
+[ext_resource type="Script" uid="uid://c2d3urgir4x3j" path="res://scripts/camera_movement.gd" id="2_nxogm"]
 
 [node name="Node2D" type="Node2D"]
 
@@ -11,3 +12,4 @@ smoothing_iterations = 20
 
 [node name="Camera2D" type="Camera2D" parent="."]
 zoom = Vector2(0.565, 0.565)
+script = ExtResource("2_nxogm")
