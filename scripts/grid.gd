@@ -31,7 +31,8 @@ func generate() -> void:
 	quads.append_array(quad_quads)
 	
 	remove_duplicate_vertices()
-	relax_grid()
+	var adjacency_list: Dictionary[int, Array] = create_adjacency_list()
+	relax_grid(adjacency_list, border_vertices, {})
 
 func generate_triangles():
 	for i: int in range(1, rings + 1):
@@ -231,23 +232,25 @@ func remove_duplicate_vertices() -> void:
 			old_to_new_index[quad[3]]
 		)
 
-# Laplacian smoothing
-func relax_grid() -> void:
-	# Create adjecency list
+func create_adjacency_list() -> Dictionary[int, Array]:
 	var adjacency_list: Dictionary[int, Array] = {}
 	
 	for quad: Vector4i in quads:
 		for i: int in range(4):
 			_add_edge_to_adjacency_list(quad[i], quad[(i + 1) % 4], adjacency_list)
 			_add_edge_to_adjacency_list(quad[(i + 1) % 4], quad[i], adjacency_list)
+	
+	return adjacency_list
 
+# Laplacian smoothing
+func relax_grid(adjacency_list: Dictionary[int, Array], static_vertices1: Dictionary[int, bool], static_vertices2: Dictionary[int, bool]) -> void:
 	for i: int in range(smoothing_iterations):
 		# Calculate new vertex positions
 		var new_vertices: Array[Vector2] = []
 		
 		for j: int in range(len(vertices)):
 			# Don't move border vertices
-			if border_vertices.has(j):
+			if static_vertices1.has(j) or static_vertices2.has(j):
 				new_vertices.append(vertices[j])
 				continue
 			
@@ -269,6 +272,19 @@ func _add_edge_to_adjacency_list(vertex1: int, vertex2: int, adjacency_list: Dic
 	if not vertex2 in neighbours:
 		neighbours.append(vertex2)
 	adjacency_list[vertex1] = neighbours
+
+func _find_closest_point_on_segment(start: Vector2, end: Vector2, point: Vector2) -> Vector2:
+	var ab: Vector2 = end - start
+	var ap: Vector2 = point - start
+	
+	var ab_len_sq: float = ab.length_squared()
+	if ab_len_sq == 0.0:
+		return start
+	
+	var t = ap.dot(ab) / ab_len_sq
+	t = clamp(t, 0.0, 1.0)
+	
+	return start + ab * t
 
 func _draw() -> void:
 	# Draw triangles
